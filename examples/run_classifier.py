@@ -35,14 +35,11 @@ from torch.nn import CrossEntropyLoss, MSELoss
 from scipy.stats import pearsonr, spearmanr
 from sklearn.metrics import matthews_corrcoef, f1_score
 
-from pytorch_pretrained_bert.file_utils import PYTORCH_PRETRAINED_BERT_CACHE
-from pytorch_pretrained_bert.modeling import BertForSequenceClassification, BertConfig, WEIGHTS_NAME, CONFIG_NAME
+from pytorch_pretrained_bert.file_utils import PYTORCH_PRETRAINED_BERT_CACHE, WEIGHTS_NAME, CONFIG_NAME
+from pytorch_pretrained_bert.modeling import BertForSequenceClassification, BertConfig
 from pytorch_pretrained_bert.tokenization import BertTokenizer
-from pytorch_pretrained_bert.optimization import BertAdam, warmup_linear
+from pytorch_pretrained_bert.optimization import BertAdam, WarmupLinearSchedule
 
-logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
-                    datefmt = '%m/%d/%Y %H:%M:%S',
-                    level = logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -95,7 +92,7 @@ class DataProcessor(object):
     @classmethod
     def _read_tsv(cls, input_file, quotechar=None):
         """Reads a tab separated value file."""
-        with open(input_file, "r") as f:
+        with open(input_file, "r", encoding="utf-8") as f:
             reader = csv.reader(f, delimiter="\t", quotechar=quotechar)
             lines = []
             for line in reader:
@@ -697,6 +694,11 @@ def main():
         n_gpu = 1
         # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
         torch.distributed.init_process_group(backend='nccl')
+
+    logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
+                        datefmt = '%m/%d/%Y %H:%M:%S',
+                        level = logging.INFO if args.local_rank in [-1, 0] else logging.WARN)
+
     logger.info("device: {} n_gpu: {}, distributed training: {}, 16-bits training: {}".format(
         device, n_gpu, bool(args.local_rank != -1), args.fp16))
 
@@ -782,6 +784,8 @@ def main():
             optimizer = FP16_Optimizer(optimizer, dynamic_loss_scale=True)
         else:
             optimizer = FP16_Optimizer(optimizer, static_loss_scale=args.loss_scale)
+        warmup_linear = WarmupLinearSchedule(warmup=args.warmup_proportion,
+                                             t_total=num_train_optimization_steps)
 
     else:
         optimizer = BertAdam(optimizer_grouped_parameters,
@@ -850,25 +854,29 @@ def main():
                     if args.fp16:
                         # modify learning rate with special warm up BERT uses
                         # if args.fp16 is False, BertAdam is used that handles this automatically
-                        lr_this_step = args.learning_rate * warmup_linear(global_step/num_train_optimization_steps, args.warmup_proportion)
+                        lr_this_step = args.learning_rate * warmup_linear.get_lr(global_step/num_train_optimization_steps,
+                                                                                 args.warmup_proportion)
                         for param_group in optimizer.param_groups:
                             param_group['lr'] = lr_this_step
                     optimizer.step()
                     optimizer.zero_grad()
                     global_step += 1
 
-        # Save a trained model and the associated configuration
+    if args.do_train and (args.local_rank == -1 or torch.distributed.get_rank() == 0):
+        # Save a trained model, configuration and tokenizer
         model_to_save = model.module if hasattr(model, 'module') else model  # Only save the model it-self
-        output_model_file = os.path.join(args.output_dir, WEIGHTS_NAME)
-        torch.save(model_to_save.state_dict(), output_model_file)
-        output_config_file = os.path.join(args.output_dir, CONFIG_NAME)
-        with open(output_config_file, 'w') as f:
-            f.write(model_to_save.config.to_json_string())
 
-        # Load a trained model and config that you have fine-tuned
-        config = BertConfig(output_config_file)
-        model = BertForSequenceClassification(config, num_labels=num_labels)
-        model.load_state_dict(torch.load(output_model_file))
+        # If we save using the predefined names, we can load using `from_pretrained`
+        output_model_file = os.path.join(args.output_dir, WEIGHTS_NAME)
+        output_config_file = os.path.join(args.output_dir, CONFIG_NAME)
+
+        torch.save(model_to_save.state_dict(), output_model_file)
+        model_to_save.config.to_json_file(output_config_file)
+        tokenizer.save_vocabulary(args.output_dir)
+
+        # Load a trained model and vocabulary that you have fine-tuned
+        model = BertForSequenceClassification.from_pretrained(args.output_dir, num_labels=num_labels)
+        tokenizer = BertTokenizer.from_pretrained(args.output_dir, do_lower_case=args.do_lower_case)
     else:
         model = BertForSequenceClassification.from_pretrained(args.bert_model, num_labels=num_labels)
     model.to(device)
@@ -931,7 +939,7 @@ def main():
         elif output_mode == "regression":
             preds = np.squeeze(preds)
         result = compute_metrics(task_name, preds, all_label_ids.numpy())
-        loss = tr_loss/nb_tr_steps if args.do_train else None
+        loss = tr_loss/global_step if args.do_train else None
 
         result['eval_loss'] = eval_loss
         result['global_step'] = global_step
@@ -999,7 +1007,7 @@ def main():
             preds = preds[0]
             preds = np.argmax(preds, axis=1)
             result = compute_metrics(task_name, preds, all_label_ids.numpy())
-            loss = tr_loss/nb_tr_steps if args.do_train else None
+            loss = tr_loss/global_step if args.do_train else None
 
             result['eval_loss'] = eval_loss
             result['global_step'] = global_step

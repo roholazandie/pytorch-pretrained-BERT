@@ -39,7 +39,8 @@ import torch
 from torch.utils.data import (DataLoader, RandomSampler, SequentialSampler,
                               TensorDataset)
 
-from pytorch_pretrained_bert import OpenAIGPTDoubleHeadsModel, OpenAIGPTTokenizer, OpenAIAdam, cached_path
+from pytorch_pretrained_bert import (OpenAIGPTDoubleHeadsModel, OpenAIGPTTokenizer,
+                                     OpenAIAdam, cached_path, WEIGHTS_NAME, CONFIG_NAME)
 
 ROCSTORIES_URL = "https://s3.amazonaws.com/datasets.huggingface.co/ROCStories.tar.gz"
 
@@ -82,8 +83,8 @@ def pre_process_datasets(encoded_datasets, input_len, cap_length, start_token, d
             input_ids[i, 1, :len(with_cont2)] = with_cont2
             mc_token_ids[i, 0] = len(with_cont1) - 1
             mc_token_ids[i, 1] = len(with_cont2) - 1
-            lm_labels[i, 0, :len(with_cont1)-1] = with_cont1[1:]
-            lm_labels[i, 1, :len(with_cont2)-1] = with_cont2[1:]
+            lm_labels[i, 0, :len(with_cont1)] = with_cont1
+            lm_labels[i, 1, :len(with_cont2)] = with_cont2
             mc_labels[i] = mc_label
         all_inputs = (input_ids, mc_token_ids, lm_labels, mc_labels)
         tensor_datasets.append(tuple(torch.tensor(t) for t in all_inputs))
@@ -218,15 +219,20 @@ def main():
 
     # Save a trained model
     if args.do_train:
+        # Save a trained model, configuration and tokenizer
         model_to_save = model.module if hasattr(model, 'module') else model  # Only save the model it-self
-        output_model_file = os.path.join(args.output_dir, "pytorch_model.bin")
-        config = model.config
-        torch.save(model_to_save.state_dict(), output_model_file)
 
-        # Load a trained model that you have fine-tuned
-        model_state_dict = torch.load(output_model_file)
-        model = OpenAIGPTDoubleHeadsModel(config)
-        model.load_state_dict(model_state_dict)
+        # If we save using the predefined names, we can load using `from_pretrained`
+        output_model_file = os.path.join(args.output_dir, WEIGHTS_NAME)
+        output_config_file = os.path.join(args.output_dir, CONFIG_NAME)
+
+        torch.save(model_to_save.state_dict(), output_model_file)
+        model_to_save.config.to_json_file(output_config_file)
+        tokenizer.save_vocabulary(args.output_dir)
+
+        # Load a trained model and vocabulary that you have fine-tuned
+        model = OpenAIGPTDoubleHeadsModel.from_pretrained(args.output_dir)
+        tokenizer = OpenAIGPTTokenizer.from_pretrained(args.output_dir)
         model.to(device)
 
     if args.do_eval:
