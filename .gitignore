@@ -125,3 +125,4 @@ tensorflow_code
 models
 
 .idea/
+data/*

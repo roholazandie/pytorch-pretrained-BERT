@@ -22,8 +22,8 @@
           --model_name openai-gpt \
           --do_train \
           --do_eval \
-          --train_dataset $ROC_STORIES_DIR/cloze_test_val__spring2016\ -\ cloze_test_ALL_val.csv \
-          --eval_dataset $ROC_STORIES_DIR/cloze_test_test__spring2016\ -\ cloze_test_ALL_test.csv \
+          --train_dataset $ROC_STORIES_DIR/cloze_test_val_spring2016cloze_test_ALL_val.csv \
+          --eval_dataset $ROC_STORIES_DIR/cloze_test_test_spring2016cloze_test_ALL_test.csv \
           --output_dir ../log \
           --train_batch_size 16 \
 """
@@ -81,7 +81,7 @@ def pre_process_datasets(encoded_datasets, input_len, cap_length, start_token, d
             with_cont2 = [start_token] + story[:cap_length] + [delimiter_token] + cont2[:cap_length] + [clf_token]
             input_ids[i, 0, :len(with_cont1)] = with_cont1
             input_ids[i, 1, :len(with_cont2)] = with_cont2
-            mc_token_ids[i, 0] = len(with_cont1) - 1
+            mc_token_ids[i, 0] = len(with_cont1) - 1 #this points to the last token which is the classifier token(clf_token)
             mc_token_ids[i, 1] = len(with_cont2) - 1
             lm_labels[i, 0, :len(with_cont1)] = with_cont1
             lm_labels[i, 1, :len(with_cont2)] = with_cont2
