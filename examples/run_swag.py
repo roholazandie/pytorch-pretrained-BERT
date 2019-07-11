@@ -252,7 +252,7 @@ def main():
                         required=True,
                         help="The input data dir. Should contain the .csv files (or other data files) for the task.")
     parser.add_argument("--bert_model",
-                        default="bert-base-uncased",
+                        default="bert-large-uncased",
                         type=str, required=True,
                         help="Bert pre-trained model selected in the list: bert-base-uncased, "
                         "bert-large-uncased, bert-base-cased, bert-large-cased, bert-base-multilingual-uncased, "
@@ -358,6 +358,7 @@ def main():
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
+    #args.bert_model = "bert-large-uncased"
     tokenizer = BertTokenizer.from_pretrained(args.bert_model, do_lower_case=args.do_lower_case)
 
     # Prepare model
