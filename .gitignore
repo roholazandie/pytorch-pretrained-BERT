@@ -123,7 +123,15 @@ tensorflow_code
 
 # Models
 models
+<<<<<<< HEAD
 
 .idea/
 data/*
 output/*
+=======
+proc_data
+
+# examples
+runs
+examples/runs
+>>>>>>> upstream/master
