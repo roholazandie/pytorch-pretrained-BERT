@@ -134,4 +134,11 @@ proc_data
 # examples
 runs
 examples/runs
+<<<<<<< HEAD
+>>>>>>> upstream/master
+=======
+
+# data
+data
+serialization_dir
 >>>>>>> upstream/master
