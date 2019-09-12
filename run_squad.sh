@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+/examples/run_squad.py --train_file /home/rohola/codes/pytorch-transformers/data/squad/train-v1.1.json --predict_file /home/rohola/codes/pytorch-transformers/data/squad/dev-v1.1.json --output_dir /home/rohola/codes/pytorch-transformers/out_dir --model_type bert --model_name_or_path bert-base-uncased
