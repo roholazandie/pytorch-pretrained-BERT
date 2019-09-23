@@ -54,14 +54,19 @@ def accuracy(out, labels):
     outputs = np.argmax(out, axis=1)
     return np.sum(outputs == labels)
 
-def load_rocstories_dataset(dataset_path):
+def load_ppdb_dataset(dataset_path):
     """ Output a list of tuples(story, 1st continuation, 2nd continuation, label) """
     with open(dataset_path, encoding='utf_8') as f:
-        f = csv.reader(f)
         output = []
-        next(f) # skip the first line
         for line in tqdm(f):
-            output.append((' '.join(line[1:5]), line[5], line[6], int(line[-1])-1))
+            line = line.split('\t')
+            output.append((line[0], line[1], line[2], int(line[-1].rstrip())))
+
+        # f = csv.reader(f)
+        # output = []
+        # next(f) # skip the first line
+        # for line in tqdm(f):
+        #     output.append((' '.join(line[1:5]), line[5], line[6], int(line[-1])-1))
     return output
 
 def pre_process_datasets(encoded_datasets, input_len, cap_length, start_token, delimiter_token, clf_token):
@@ -102,7 +107,7 @@ def main():
     parser.add_argument('--train_dataset', type=str, default='')
     parser.add_argument('--eval_dataset', type=str, default='')
     parser.add_argument('--seed', type=int, default=42)
-    parser.add_argument('--num_train_epochs', type=int, default=10)
+    parser.add_argument('--num_train_epochs', type=int, default=20)
     parser.add_argument('--train_batch_size', type=int, default=8)
     parser.add_argument('--eval_batch_size', type=int, default=16)
     parser.add_argument("--adam_epsilon", default=1e-8, type=float,
@@ -111,7 +116,7 @@ def main():
     parser.add_argument("--max_steps", default=-1, type=int,
                         help="If > 0: set total number of training \
                         steps to perform. Override num_train_epochs.")
-    parser.add_argument('--gradient_accumulation_steps', type=int, default=4,
+    parser.add_argument('--gradient_accumulation_steps', type=int, default=1,
                         help="Number of updates steps to accumulate before\
                         performing a backward/update pass.")
     parser.add_argument('--learning_rate', type=float, default=6.25e-5)
@@ -160,6 +165,14 @@ def main():
     model.resize_token_embeddings(len(tokenizer))
     model.to(device)
 
+    # input_ids = torch.randint(100, (4, 2, 22), dtype=torch.int32, device='cuda')
+    # mc_token_ids = torch.randint(100, (4, 2), dtype=torch.int32, device='cuda')
+    # lm_labels = torch.randint(100, (4, 2, 22), dtype=torch.int32, device='cuda')
+    # mc_labels = torch.randint(100, (4,),  dtype=torch.int32, device='cuda')
+    #
+    # output_names = ["output1"]
+    # torch.onnx.export(model, (input_ids, mc_token_ids, lm_labels, mc_labels), "alexnet.onnx", verbose=True)
+
     # Load and encode the datasets
     if not args.train_dataset and not args.eval_dataset:
         roc_stories = cached_path(ROCSTORIES_URL)
@@ -171,8 +184,8 @@ def main():
             return obj
         return list(tokenize_and_encode(o) for o in obj)
     logger.info("Encoding dataset...")
-    train_dataset = load_rocstories_dataset(args.train_dataset)
-    eval_dataset = load_rocstories_dataset(args.eval_dataset)
+    train_dataset = load_ppdb_dataset(args.train_dataset)
+    eval_dataset = load_ppdb_dataset(args.eval_dataset)
     datasets = (train_dataset, eval_dataset)
     encoded_datasets = tokenize_and_encode(datasets)
 
@@ -224,6 +237,9 @@ def main():
                 batch = tuple(t.to(device) for t in batch)
                 input_ids, mc_token_ids, lm_labels, mc_labels = batch
                 losses = model(input_ids, mc_token_ids=mc_token_ids, lm_labels=lm_labels, mc_labels=mc_labels)
+
+                #torch.onnx.export(model,(input_ids, None, None, None, None, mc_token_ids, lm_labels, mc_labels), "alexnet.onnx", verbose=True)
+
                 loss = args.lm_coef * losses[0] + losses[1]
                 loss.backward()
                 scheduler.step()
