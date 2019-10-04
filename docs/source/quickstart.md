@@ -19,12 +19,12 @@ The library was designed with two strong goals in mind:
 
 A few other goals:
 
-- expose the models internals as consistently as possible:
+- expose the models' internals as consistently as possible:
 
   - we give access, using a single API to the full hidden-states and attention weights,
   - tokenizer and base model's API are standardized to easily switch between models.
 
-- incorporate a subjective selection of promising tools for fine-tuning/investiguating these models:
+- incorporate a subjective selection of promising tools for fine-tuning/investigating these models:
 
   - a simple/consistent way to add new tokens to the vocabulary and embeddings for fine-tuning,
   - simple ways to mask and prune transformer heads.
@@ -33,7 +33,7 @@ A few other goals:
 
 The library is build around three type of classes for each models:
 
-- **model classes** which are PyTorch models (`torch.nn.Modules`) of the 6 models architectures currently provided in the library, e.g. `BertModel`
+- **model classes** which are PyTorch models (`torch.nn.Modules`) of the 8 models architectures currently provided in the library, e.g. `BertModel`
 - **configuration classes** which store all the parameters required to build a model, e.g. `BertConfig`. You don't always need to instantiate these your-self, in particular if you are using a pretrained model without any modification, creating the model will automatically take care of instantiating the configuration (which is part of the model)
 - **tokenizer classes** which store the vocabulary for each model and provide methods for encoding/decoding strings in list of token embeddings indices to be fed to a model, e.g. `BertTokenizer`
 
@@ -51,7 +51,7 @@ We'll finish this quickstart tour by going through a few simple quick-start exam
 
 Here are two examples showcasing a few `Bert` and `GPT2` classes and pre-trained models.
 
-See full API reference for examples for each model classe.
+See full API reference for examples for each model class.
 
 ### BERT example
 
@@ -93,8 +93,8 @@ Let's see how we can use `BertModel` to encode our inputs in hidden-states:
 # Load pre-trained model (weights)
 model = BertModel.from_pretrained('bert-base-uncased')
 
-# Set the model in evaluation mode to desactivate the DropOut modules
-# This is IMPORTANT to have reproductible results during evaluation!
+# Set the model in evaluation mode to deactivate the DropOut modules
+# This is IMPORTANT to have reproducible results during evaluation!
 model.eval()
 
 # If you have a GPU, put everything on cuda
@@ -168,8 +168,8 @@ Let's see how to use `GPT2LMHeadModel` to generate the next token following our 
 # Load pre-trained model (weights)
 model = GPT2LMHeadModel.from_pretrained('gpt2')
 
-# Set the model in evaluation mode to desactivate the DropOut modules
-# This is IMPORTANT to have reproductible results during evaluation!
+# Set the model in evaluation mode to deactivate the DropOut modules
+# This is IMPORTANT to have reproducible results during evaluation!
 model.eval()
 
 # If you have a GPU, put everything on cuda

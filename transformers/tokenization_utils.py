@@ -430,7 +430,7 @@ class PreTrainedTokenizer(object):
                 - tokenizer instantiation positional and keywords inputs (e.g. do_lower_case for Bert).
 
             This won't save modifications other than (added tokens and special token mapping) you may have
-            applied to the tokenizer after the instantion (e.g. modifying tokenizer.do_lower_case after creation).
+            applied to the tokenizer after the instantiation (e.g. modifying tokenizer.do_lower_case after creation).
 
             This method make sure the full tokenizer can then be re-loaded using the :func:`~transformers.PreTrainedTokenizer.from_pretrained` class method.
         """
@@ -512,7 +512,8 @@ class PreTrainedTokenizer(object):
         for token in new_tokens:
             assert isinstance(token, str) or (six.PY2 and isinstance(token, unicode))
             if token != self.unk_token and \
-                    self.convert_tokens_to_ids(token) == self.convert_tokens_to_ids(self.unk_token):
+                    self.convert_tokens_to_ids(token) == self.convert_tokens_to_ids(self.unk_token) and \
+                    token not in to_add_tokens:
                 to_add_tokens.append(token)
                 logger.info("Adding %s to the vocabulary", token)
 
@@ -933,20 +934,11 @@ class PreTrainedTokenizer(object):
             sub_texts.append(self.convert_tokens_to_string(current_sub_text))
         text = ''.join(sub_texts)
 
-        if self._sep_token is not None and self._sep_token in text:
-            text = text.replace(self._cls_token, self._sep_token)
-            split_text = list(filter(lambda sentence: len(sentence) > 0, text.split(self._sep_token)))
-            if clean_up_tokenization_spaces:
-                clean_text = [self.clean_up_tokenization(text) for text in split_text]
-                return clean_text
-            else:
-                return split_text
+        if clean_up_tokenization_spaces:
+            clean_text = self.clean_up_tokenization(text)
+            return clean_text
         else:
-            if clean_up_tokenization_spaces:
-                clean_text = self.clean_up_tokenization(text)
-                return clean_text
-            else:
-                return text
+            return text
 
     @property
     def special_tokens_map(self):

@@ -46,12 +46,14 @@ PRETRAINED_VOCAB_FILES_MAP = {
         'gpt2': "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-vocab.json",
         'gpt2-medium': "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-medium-vocab.json",
         'gpt2-large': "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-large-vocab.json",
+        'distilgpt2': "https://s3.amazonaws.com/models.huggingface.co/bert/distilgpt2-vocab.json",
     },
     'merges_file':
     {
         'gpt2': "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-merges.txt",
         'gpt2-medium': "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-medium-merges.txt",
         'gpt2-large': "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-large-merges.txt",
+        'distilgpt2': "https://s3.amazonaws.com/models.huggingface.co/bert/distilgpt2-merges.txt",
     },
 }
 
@@ -59,6 +61,7 @@ PRETRAINED_POSITIONAL_EMBEDDINGS_SIZES = {
     'gpt2': 1024,
     'gpt2-medium': 1024,
     'gpt2-large': 1024,
+    'distilgpt2': 1024,
 }
 
 @lru_cache()
@@ -101,9 +104,10 @@ class GPT2Tokenizer(PreTrainedTokenizer):
     """
     GPT-2 BPE tokenizer. Peculiarities:
         - Byte-level Byte-Pair-Encoding
-        - Requires a space to start the input string => will add a space is there isn't.
-          As a consequence, this tokenizer `encode` and `decode` method will not conserve
-          the absence of a space at the beginning of a string: `tokenizer.decode(tokenizer.encode("Hello")) = " Hello"
+        - Requires a space to start the input string => the encoding methods should be called with the
+          ``add_prefix_space`` flag set to ``True``.
+          Otherwise, this tokenizer ``encode`` and ``decode`` method will not conserve
+          the absence of a space at the beginning of a string: `tokenizer.decode(tokenizer.encode("Hello")) = " Hello"`
     """
     vocab_files_names = VOCAB_FILES_NAMES
     pretrained_vocab_files_map = PRETRAINED_VOCAB_FILES_MAP

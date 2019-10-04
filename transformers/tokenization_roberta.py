@@ -66,9 +66,10 @@ class RobertaTokenizer(GPT2Tokenizer):
     """
     RoBERTa BPE tokenizer, derived from the GPT-2 tokenizer. Peculiarities:
         - Byte-level Byte-Pair-Encoding
-        - Requires a space to start the input string => will add a space is there isn't.
-          As a consequence, this tokenizer `encode` and `decode` method will not conserve
-          the absence of a space at the beginning of a string: `tokenizer.decode(tokenizer.encode("Hello")) = " Hello"
+        - Requires a space to start the input string => the encoding methods should be called with the
+          ``add_prefix_space`` flag set to ``True``.
+          Otherwise, this tokenizer ``encode`` and ``decode`` method will not conserve
+          the absence of a space at the beginning of a string: `tokenizer.decode(tokenizer.encode("Hello")) = " Hello"`
     """
     vocab_files_names = VOCAB_FILES_NAMES
     pretrained_vocab_files_map = PRETRAINED_VOCAB_FILES_MAP
@@ -80,6 +81,8 @@ class RobertaTokenizer(GPT2Tokenizer):
                                                bos_token=bos_token, eos_token=eos_token, unk_token=unk_token,
                                                sep_token=sep_token, cls_token=cls_token, pad_token=pad_token,
                                                mask_token=mask_token, **kwargs)
+        self.max_len_single_sentence = self.max_len - 2  # take into account special tokens
+        self.max_len_sentences_pair = self.max_len - 4  # take into account special tokens
 
     def add_special_tokens_single_sequence(self, token_ids):
         """
