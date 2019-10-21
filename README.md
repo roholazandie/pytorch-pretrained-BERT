@@ -176,10 +176,11 @@ BERT_MODEL_CLASSES = [BertModel, BertForPreTraining, BertForMaskedLM, BertForNex
 # All the classes for an architecture can be initiated from pretrained weights for this architecture
 # Note that additional weights added for fine-tuning are only initialized
 # and need to be trained on the down-stream task
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+pretrained_weights = 'bert-base-uncased'
+tokenizer = BertTokenizer.from_pretrained(pretrained_weights)
 for model_class in BERT_MODEL_CLASSES:
     # Load pretrained model/tokenizer
-    model = model_class.from_pretrained('bert-base-uncased')
+    model = model_class.from_pretrained(pretrained_weights)
 
     # Models can return full list of hidden-states & attentions weights at each layer
     model = model_class.from_pretrained(pretrained_weights,
@@ -242,8 +243,9 @@ sentence_2 = "His findings were not compatible with this research."
 inputs_1 = tokenizer.encode_plus(sentence_0, sentence_1, add_special_tokens=True, return_tensors='pt')
 inputs_2 = tokenizer.encode_plus(sentence_0, sentence_2, add_special_tokens=True, return_tensors='pt')
 
-pred_1 = pytorch_model(**inputs_1)[0].argmax().item()
-pred_2 = pytorch_model(**inputs_2)[0].argmax().item()
+pred_1 = pytorch_model(inputs_1['input_ids'], token_type_ids=inputs_1['token_type_ids'])[0].argmax().item()
+pred_2 = pytorch_model(inputs_2['input_ids'], token_type_ids=inputs_2['token_type_ids'])[0].argmax().item()
+
 print("sentence_1 is", "a paraphrase" if pred_1 else "not a paraphrase", "of sentence_0")
 print("sentence_2 is", "a paraphrase" if pred_2 else "not a paraphrase", "of sentence_0")
 ```
@@ -547,12 +549,11 @@ for batch in train_data:
 
 We now have a paper you can cite for the 🤗 Transformers library:
 ```
-@misc{wolf2019transformers,
-    title={Transformers: State-of-the-art Natural Language Processing},
-    author={Thomas Wolf and Lysandre Debut and Victor Sanh and Julien Chaumond and Clement Delangue and Anthony Moi and Pierric Cistac and Tim Rault and Rémi Louf and Morgan Funtowicz and Jamie Brew},
-    year={2019},
-    eprint={1910.03771},
-    archivePrefix={arXiv},
-    primaryClass={cs.CL}
+@article{Wolf2019HuggingFacesTS,
+  title={HuggingFace's Transformers: State-of-the-art Natural Language Processing},
+  author={Thomas Wolf and Lysandre Debut and Victor Sanh and Julien Chaumond and Clement Delangue and Anthony Moi and Pierric Cistac and Tim Rault and R'emi Louf and Morgan Funtowicz and Jamie Brew},
+  journal={ArXiv},
+  year={2019},
+  volume={abs/1910.03771}
 }
 ```
