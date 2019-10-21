@@ -512,6 +512,33 @@ class WnliProcessor(DataProcessor):
                 InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
         return examples
 
+
+class DailyDialogEmotionProcessor(DataProcessor):
+
+    def get_example_from_tensor_dict(self, tensor_dict):
+        pass #for tf
+
+    def get_train_examples(self, data_dir):
+        return self._create_examples(
+            self._read_tsv(os.path.join(data_dir, "train.tsv")), "train")
+
+    def get_dev_examples(self, data_dir):
+        return self._create_examples(
+            self._read_tsv(os.path.join(data_dir, "dev.tsv")), "dev")
+
+    def get_labels(self):
+        return ["no_emotion", "happiness", "surprise", "sadness", "disgust", "anger", "fear"]
+
+    def _create_examples(self, lines, set_type):
+        examples = []
+        for (i, line) in enumerate(lines):
+            guid = "%s-%s" % (set_type, i)
+            text_a = line[0]
+            label = line[1]
+            examples.append(
+                InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
+        return examples
+
 glue_tasks_num_labels = {
     "cola": 2,
     "mnli": 3,
@@ -522,6 +549,7 @@ glue_tasks_num_labels = {
     "qnli": 2,
     "rte": 2,
     "wnli": 2,
+    "dailydialog": 7
 }
 
 glue_processors = {
@@ -535,6 +563,7 @@ glue_processors = {
     "qnli": QnliProcessor,
     "rte": RteProcessor,
     "wnli": WnliProcessor,
+    "dailydialog": DailyDialogEmotionProcessor
 }
 
 glue_output_modes = {
@@ -548,4 +577,5 @@ glue_output_modes = {
     "qnli": "classification",
     "rte": "classification",
     "wnli": "classification",
+    "dailydialog": "classification"
 }
