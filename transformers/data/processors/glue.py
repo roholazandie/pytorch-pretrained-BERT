@@ -527,7 +527,7 @@ class DailyDialogEmotionProcessor(DataProcessor):
             self._read_tsv(os.path.join(data_dir, "dev.tsv")), "dev")
 
     def get_labels(self):
-        return ["no_emotion", "happiness", "surprise", "sadness", "disgust", "anger", "fear"]
+        return ["happiness", "surprise", "sadness", "disgust", "anger", "fear"]
 
     def _create_examples(self, lines, set_type):
         examples = []
@@ -535,8 +535,9 @@ class DailyDialogEmotionProcessor(DataProcessor):
             guid = "%s-%s" % (set_type, i)
             text_a = line[0]
             label = line[1]
-            examples.append(
-                InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
+            if label == "no_emotion":
+                continue
+            examples.append(InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
         return examples
 
 glue_tasks_num_labels = {
@@ -549,7 +550,7 @@ glue_tasks_num_labels = {
     "qnli": 2,
     "rte": 2,
     "wnli": 2,
-    "dailydialog": 7
+    "dailydialog": 6
 }
 
 glue_processors = {
