@@ -17,6 +17,7 @@
 import csv
 import sys
 import logging
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,16 @@ if _has_sklearn:
         }
 
 
+    def precision(t):
+        true_pos = np.diag(t)
+        precision = np.mean(true_pos / np.sum(t, axis=0))
+        return precision
+
+    def recall(t):
+        true_pos = np.diag(t)
+        recall = np.mean(true_pos / np.sum(t, axis=1))
+        return recall
+
     def glue_compute_metrics(task_name, preds, labels):
         assert len(preds) == len(labels)
         if task_name == "cola":
@@ -80,6 +91,9 @@ if _has_sklearn:
         elif task_name == "wnli":
             return {"acc": simple_accuracy(preds, labels)}
         elif task_name == "dailydialog":
-            return {"confusion_matrix": confusion_matrix(labels, preds)}
+            cm = confusion_matrix(labels, preds)
+            return {"confusion_matrix": cm,
+                    "precision": precision(cm),
+                    "recall": recall(cm)}
         else:
             raise KeyError(task_name)

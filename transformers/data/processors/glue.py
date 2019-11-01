@@ -526,6 +526,9 @@ class DailyDialogEmotionProcessor(DataProcessor):
         return self._create_examples(
             self._read_tsv(os.path.join(data_dir, "dev.tsv")), "dev")
 
+    def get_infer_examples(self, data_dir):
+        return self._create_examples(self._read_tsv(os.path.join(data_dir, "infer.tsv")), "infer")
+
     def get_labels(self):
         return ["happiness", "surprise", "sadness", "disgust", "anger", "fear"]
 
