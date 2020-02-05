@@ -219,7 +219,7 @@ def main():
         print("length: ", args.length)
         output_sequences = model.generate(
             input_ids=encoded_prompt,
-            max_length=args.length,
+            max_length=1000,
             temperature=args.temperature,
             top_k=args.k,
             top_p=args.p,
