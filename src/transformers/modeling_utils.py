@@ -47,13 +47,26 @@ except ImportError:
         """
 
         def __init__(self, *args, **kwargs):
-            super(Identity, self).__init__()
+            super().__init__()
 
         def forward(self, input):
             return input
 
 
-class PreTrainedModel(nn.Module):
+class ModuleUtilsMixin:
+    """
+    A few utilities for torch.nn.Modules, to be used as a mixin.
+    """
+
+    def num_parameters(self, only_trainable: bool = False) -> int:
+        """
+        Get number of (optionally, trainable) parameters in the module.
+        """
+        params = filter(lambda x: x.requires_grad, self.parameters()) if only_trainable else self.parameters()
+        return sum(p.numel() for p in params)
+
+
+class PreTrainedModel(nn.Module, ModuleUtilsMixin):
     r""" Base class for all models.
 
         :class:`~transformers.PreTrainedModel` takes care of storing the configuration of the models and handles methods for loading/downloading/saving models
@@ -84,7 +97,7 @@ class PreTrainedModel(nn.Module):
         return {"input_ids": torch.tensor(DUMMY_INPUTS)}
 
     def __init__(self, config, *inputs, **kwargs):
-        super(PreTrainedModel, self).__init__()
+        super().__init__()
         if not isinstance(config, PretrainedConfig):
             raise ValueError(
                 "Parameter config in `{}(config)` should be an instance of class `PretrainedConfig`. "
@@ -101,7 +114,12 @@ class PreTrainedModel(nn.Module):
         return getattr(self, self.base_model_prefix, self)
 
     def get_input_embeddings(self):
-        """ Get model's input embeddings
+        """
+        Returns the model's input embeddings.
+
+        Returns:
+            :obj:`nn.Module`:
+                A torch module mapping vocabulary to hidden states.
         """
         base_model = getattr(self, self.base_model_prefix, self)
         if base_model is not self:
@@ -110,7 +128,12 @@ class PreTrainedModel(nn.Module):
             raise NotImplementedError
 
     def set_input_embeddings(self, value):
-        """ Set model's input embeddings
+        """
+        Set model's input embeddings
+
+        Args:
+            value (:obj:`nn.Module`):
+                A module mapping vocabulary to hidden states.
         """
         base_model = getattr(self, self.base_model_prefix, self)
         if base_model is not self:
@@ -119,14 +142,20 @@ class PreTrainedModel(nn.Module):
             raise NotImplementedError
 
     def get_output_embeddings(self):
-        """ Get model's output embeddings
-            Return None if the model doesn't have output embeddings
+        """
+        Returns the model's output embeddings.
+
+        Returns:
+            :obj:`nn.Module`:
+                A torch module mapping hidden states to vocabulary.
         """
         return None  # Overwrite for models with output embeddings
 
     def tie_weights(self):
-        """ Make sure we are sharing the input and output embeddings.
-            Export to TorchScript can't handle parameter sharing so we are cloning them instead.
+        """
+        Tie the weights between the input embeddings and the output embeddings.
+        If the `torchscript` flag is set in the configuration, can't handle parameter sharing so we are cloning
+        the weights instead.
         """
         output_embeddings = self.get_output_embeddings()
         if output_embeddings is not None:
@@ -255,6 +284,9 @@ class PreTrainedModel(nn.Module):
         # Only save the model itself if we are using distributed training
         model_to_save = self.module if hasattr(self, "module") else self
 
+        # Attach architecture to the config
+        model_to_save.config.architectures = [model_to_save.__class__.__name__]
+
         # Save configuration file
         model_to_save.config.save_pretrained(save_directory)
 
@@ -277,24 +309,22 @@ class PreTrainedModel(nn.Module):
 
         Parameters:
             pretrained_model_name_or_path: either:
-
-                - a string with the `shortcut name` of a pre-trained model to load from cache or download, e.g.: ``bert-base-uncased``.
-                - a string with the `identifier name` of a pre-trained model that was user-uploaded to our S3, e.g.: ``dbmdz/bert-base-german-cased``.
-                - a path to a `directory` containing model weights saved using :func:`~transformers.PreTrainedModel.save_pretrained`, e.g.: ``./my_model_directory/``.
-                - a path or url to a `tensorflow index checkpoint file` (e.g. `./tf_model/model.ckpt.index`). In this case, ``from_tf`` should be set to True and a configuration object should be provided as ``config`` argument. This loading path is slower than converting the TensorFlow checkpoint in a PyTorch model using the provided conversion scripts and loading the PyTorch model afterwards.
-                - None if you are both providing the configuration and state dictionary (resp. with keyword arguments ``config`` and ``state_dict``)
+              - a string with the `shortcut name` of a pre-trained model to load from cache or download, e.g.: ``bert-base-uncased``.
+              - a string with the `identifier name` of a pre-trained model that was user-uploaded to our S3, e.g.: ``dbmdz/bert-base-german-cased``.
+              - a path to a `directory` containing model weights saved using :func:`~transformers.PreTrainedModel.save_pretrained`, e.g.: ``./my_model_directory/``.
+              - a path or url to a `tensorflow index checkpoint file` (e.g. `./tf_model/model.ckpt.index`). In this case, ``from_tf`` should be set to True and a configuration object should be provided as ``config`` argument. This loading path is slower than converting the TensorFlow checkpoint in a PyTorch model using the provided conversion scripts and loading the PyTorch model afterwards.
+              - None if you are both providing the configuration and state dictionary (resp. with keyword arguments ``config`` and ``state_dict``)
 
             model_args: (`optional`) Sequence of positional arguments:
                 All remaning positional arguments will be passed to the underlying model's ``__init__`` method
 
             config: (`optional`) one of:
-                    - an instance of a class derived from :class:`~transformers.PretrainedConfig`, or
-                    - a string valid as input to :func:`~transformers.PretrainedConfig.from_pretrained()`
+                - an instance of a class derived from :class:`~transformers.PretrainedConfig`, or
+                - a string valid as input to :func:`~transformers.PretrainedConfig.from_pretrained()`
                 Configuration for the model to use instead of an automatically loaded configuation. Configuration can be automatically loaded when:
-
-                - the model is a model provided by the library (loaded with the ``shortcut-name`` string of a pretrained model), or
-                - the model was saved using :func:`~transformers.PreTrainedModel.save_pretrained` and is reloaded by suppling the save directory.
-                - the model is loaded by suppling a local directory as ``pretrained_model_name_or_path`` and a configuration JSON file named `config.json` is found in the directory.
+                    - the model is a model provided by the library (loaded with the ``shortcut-name`` string of a pretrained model), or
+                    - the model was saved using :func:`~transformers.PreTrainedModel.save_pretrained` and is reloaded by suppling the save directory.
+                    - the model is loaded by suppling a local directory as ``pretrained_model_name_or_path`` and a configuration JSON file named `config.json` is found in the directory.
 
             state_dict: (`optional`) dict:
                 an optional state dictionnary for the model to use instead of a state dictionary loaded from saved weights file.
@@ -326,6 +356,7 @@ class PreTrainedModel(nn.Module):
 
         Examples::
 
+            # For example purposes. Not runnable.
             model = BertModel.from_pretrained('bert-base-uncased')    # Download model and configuration from S3 and cache.
             model = BertModel.from_pretrained('./test/saved_model/')  # E.g. model was saved using `save_pretrained('./test/saved_model/')`
             model = BertModel.from_pretrained('bert-base-uncased', output_attention=True)  # Update configuration during loading
@@ -484,7 +515,7 @@ class PreTrainedModel(nn.Module):
 
             # PyTorch's `_load_from_state_dict` does not copy parameters in a module's descendants
             # so we need to apply the function recursively.
-            def load(module, prefix=""):
+            def load(module: nn.Module, prefix=""):
                 local_metadata = {} if metadata is None else metadata.get(prefix[:-1], {})
                 module._load_from_state_dict(
                     state_dict, prefix, local_metadata, True, missing_keys, unexpected_keys, error_msgs
@@ -555,7 +586,7 @@ class PreTrainedModel(nn.Module):
         self,
         input_ids=None,
         max_length=None,
-        do_sample=None,
+        do_sample=True,
         num_beams=None,
         temperature=None,
         top_k=None,
@@ -586,7 +617,7 @@ class PreTrainedModel(nn.Module):
                 The max length of the sequence to be generated.  Between 1 and infinity. Default to 20.
 
             do_sample: (`optional`) bool
-                If set to `False` greedy decoding is used. Otherwise sampling is used. Default to greedy sampling.
+                If set to `False` greedy decoding is used. Otherwise sampling is used. Defaults to `True`.
 
             num_beams: (`optional`) int
                 Number of beams for beam search. Must be between 1 and infinity. 1 means no beam search. Default to 1.
@@ -1089,7 +1120,7 @@ class Conv1D(nn.Module):
         """ Conv1D layer as defined by Radford et al. for OpenAI GPT (and also used in GPT-2)
             Basically works like a Linear layer but the weights are transposed
         """
-        super(Conv1D, self).__init__()
+        super().__init__()
         self.nf = nf
         w = torch.empty(nx, nf)
         nn.init.normal_(w, std=0.02)
@@ -1107,7 +1138,7 @@ class PoolerStartLogits(nn.Module):
     """ Compute SQuAD start_logits from sequence hidden states. """
 
     def __init__(self, config):
-        super(PoolerStartLogits, self).__init__()
+        super().__init__()
         self.dense = nn.Linear(config.hidden_size, 1)
 
     def forward(self, hidden_states, p_mask=None):
@@ -1132,7 +1163,7 @@ class PoolerEndLogits(nn.Module):
     """
 
     def __init__(self, config):
-        super(PoolerEndLogits, self).__init__()
+        super().__init__()
         self.dense_0 = nn.Linear(config.hidden_size * 2, config.hidden_size)
         self.activation = nn.Tanh()
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
@@ -1178,7 +1209,7 @@ class PoolerAnswerClass(nn.Module):
     """ Compute SQuAD 2.0 answer class from classification and start tokens hidden states. """
 
     def __init__(self, config):
-        super(PoolerAnswerClass, self).__init__()
+        super().__init__()
         self.dense_0 = nn.Linear(config.hidden_size * 2, config.hidden_size)
         self.activation = nn.Tanh()
         self.dense_1 = nn.Linear(config.hidden_size, 1, bias=False)
@@ -1263,7 +1294,7 @@ class SQuADHead(nn.Module):
     """
 
     def __init__(self, config):
-        super(SQuADHead, self).__init__()
+        super().__init__()
         self.start_n_top = config.start_n_top
         self.end_n_top = config.end_n_top
 
@@ -1355,7 +1386,7 @@ class SequenceSummary(nn.Module):
     """
 
     def __init__(self, config):
-        super(SequenceSummary, self).__init__()
+        super().__init__()
 
         self.summary_type = config.summary_type if hasattr(config, "summary_type") else "last"
         if self.summary_type == "attn":

@@ -33,7 +33,7 @@ class ModalEmbeddings(nn.Module):
     """
 
     def __init__(self, config, encoder, embeddings):
-        super(ModalEmbeddings, self).__init__()
+        super().__init__()
         self.config = config
         self.encoder = encoder
         self.proj_embeddings = nn.Linear(config.modal_hidden_size, config.hidden_size)
@@ -84,7 +84,7 @@ MMBT_START_DOCSTRING = r"""    MMBT model was proposed in
     refer to the PyTorch documentation for all matter related to general usage and behavior.
 
     .. _`Supervised Multimodal Bitransformers for Classifying Images and Text`:
-        https://www.github.com/salesforce/ctrl
+        https://github.com/facebookresearch/mmbt
 
     .. _`torch.nn.Module`:
         https://pytorch.org/docs/stable/nn.html#module
@@ -169,13 +169,15 @@ class MMBTModel(nn.Module):
                 Attentions weights after the attention softmax, used to compute the weighted average in the self-attention heads.
 
         Examples::
+
+            # For example purposes. Not runnable.
             transformer = BertModel.from_pretrained('bert-base-uncased')
             encoder = ImageEncoder(args)
             mmbt = MMBTModel(config, transformer, encoder)
         """
 
     def __init__(self, config, transformer, encoder):
-        super(MMBTModel, self).__init__()
+        super().__init__()
         self.config = config
         self.transformer = transformer
         self.modal_encoder = ModalEmbeddings(config, encoder, transformer.embeddings)
@@ -351,6 +353,7 @@ class MMBTForClassification(nn.Module):
 
         Examples::
 
+            # For example purposes. Not runnable.
             transformer = BertModel.from_pretrained('bert-base-uncased')
             encoder = ImageEncoder(args)
             model = MMBTForClassification(config, transformer, encoder)
@@ -359,7 +362,7 @@ class MMBTForClassification(nn.Module):
         """
 
     def __init__(self, config, transformer, encoder):
-        super(MMBTForClassification, self).__init__()
+        super().__init__()
         self.num_labels = config.num_labels
 
         self.mmbt = MMBTModel(config, transformer, encoder)

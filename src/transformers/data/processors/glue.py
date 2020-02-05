@@ -76,11 +76,15 @@ def glue_convert_examples_to_features(examples, tokenizer,
 
     features = []
     for (ex_index, example) in enumerate(examples):
-        if ex_index % 10000 == 0:
-            logger.info("Writing example %d" % (ex_index))
+        len_examples = 0
         if is_tf_dataset:
             example = processor.get_example_from_tensor_dict(example)
             example = processor.tfds_map(example)
+            len_examples = tf.data.experimental.cardinality(examples)
+        else:
+            len_examples = len(examples)
+        if ex_index % 10000 == 0:
+            logger.info("Writing example %d/%d" % (ex_index, len_examples))
 
         inputs = tokenizer.encode_plus(
             example.text_a,
@@ -106,8 +110,12 @@ def glue_convert_examples_to_features(examples, tokenizer,
             token_type_ids = token_type_ids + ([pad_token_segment_id] * padding_length)
 
         assert len(input_ids) == max_length, "Error with input length {} vs {}".format(len(input_ids), max_length)
-        assert len(attention_mask) == max_length, "Error with input length {} vs {}".format(len(attention_mask), max_length)
-        assert len(token_type_ids) == max_length, "Error with input length {} vs {}".format(len(token_type_ids), max_length)
+        assert len(attention_mask) == max_length, "Error with input length {} vs {}".format(
+            len(attention_mask), max_length
+        )
+        assert len(token_type_ids) == max_length, "Error with input length {} vs {}".format(
+            len(token_type_ids), max_length
+        )
 
         if output_mode == "classification":
             label = label_map[example.label]

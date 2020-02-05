@@ -48,6 +48,7 @@ PRETRAINED_VOCAB_FILES_MAP = {
         "bert-base-german-dbmdz-uncased": "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-german-dbmdz-uncased-vocab.txt",
         "bert-base-finnish-cased-v1": "https://s3.amazonaws.com/models.huggingface.co/bert/TurkuNLP/bert-base-finnish-cased-v1/vocab.txt",
         "bert-base-finnish-uncased-v1": "https://s3.amazonaws.com/models.huggingface.co/bert/TurkuNLP/bert-base-finnish-uncased-v1/vocab.txt",
+        "bert-base-dutch-cased": "https://s3.amazonaws.com/models.huggingface.co/bert/wietsedv/bert-base-dutch-cased/vocab.txt",
     }
 }
 
@@ -69,6 +70,7 @@ PRETRAINED_POSITIONAL_EMBEDDINGS_SIZES = {
     "bert-base-german-dbmdz-uncased": 512,
     "bert-base-finnish-cased-v1": 512,
     "bert-base-finnish-uncased-v1": 512,
+    "bert-base-dutch-cased": 512,
 }
 
 PRETRAINED_INIT_CONFIGURATION = {
@@ -89,6 +91,7 @@ PRETRAINED_INIT_CONFIGURATION = {
     "bert-base-german-dbmdz-uncased": {"do_lower_case": True},
     "bert-base-finnish-cased-v1": {"do_lower_case": False},
     "bert-base-finnish-uncased-v1": {"do_lower_case": True},
+    "bert-base-dutch-cased": {"do_lower_case": False},
 }
 
 
@@ -163,7 +166,7 @@ class BertTokenizer(PreTrainedTokenizer):
                 This should likely be deactivated for Japanese:
                 see: https://github.com/huggingface/pytorch-pretrained-BERT/issues/328
         """
-        super(BertTokenizer, self).__init__(
+        super().__init__(
             unk_token=unk_token,
             sep_token=sep_token,
             pad_token=pad_token,
@@ -341,7 +344,7 @@ class BasicTokenizer(object):
             if self.do_lower_case and token not in never_split:
                 token = token.lower()
                 token = self._run_strip_accents(token)
-            split_tokens.extend(self._run_split_on_punc(token))
+            split_tokens.extend(self._run_split_on_punc(token, never_split))
 
         output_tokens = whitespace_tokenize(" ".join(split_tokens))
         return output_tokens
@@ -554,7 +557,7 @@ class BertTokenizerFast(PreTrainedTokenizerFast):
         add_special_tokens=True,
         **kwargs
     ):
-        super(BertTokenizerFast, self).__init__(
+        super().__init__(
             unk_token=unk_token,
             sep_token=sep_token,
             pad_token=pad_token,

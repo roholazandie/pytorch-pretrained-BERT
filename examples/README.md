@@ -24,6 +24,8 @@ pip install -r ./examples/requirements.txt
 | [Multiple Choice](#multiple-choice) | Examples running BERT/XLNet/RoBERTa on the SWAG/RACE/ARC tasks. 
 | [Named Entity Recognition](#named-entity-recognition) | Using BERT for Named Entity Recognition (NER) on the CoNLL 2003 dataset, examples with distributed training.                                                                                  |
 | [XNLI](#xnli) | Examples running BERT/XLM on the XNLI benchmark. |
+| [Adversarial evaluation of model performances](#adversarial-evaluation-of-model-performances) | Testing a model with adversarial evaluation of natural language
+inference on the Heuristic Analysis for NLI Systems (HANS) dataset (McCoy et al., 2019.) |
 
 ## TensorFlow 2.0 Bert models on GLUE
 
@@ -133,21 +135,21 @@ Fine-tuning the library models for sequence classification on the GLUE benchmark
 Evaluation](https://gluebenchmark.com/). This script can fine-tune the following models: BERT, XLM, XLNet and RoBERTa. 
 
 GLUE is made up of a total of 9 different tasks. We get the following results on the dev set of the benchmark with an
-uncased  BERT base model (the checkpoint `bert-base-uncased`). All experiments ran on 8 V100 GPUs with a total train
-batch size of 24. Some of these tasks have a small dataset and training can lead to high variance in the results
+uncased  BERT base model (the checkpoint `bert-base-uncased`). All experiments ran single V100 GPUs with a total train
+batch sizes between 16 and 64. Some of these tasks have a small dataset and training can lead to high variance in the results
 between different runs. We report the median on 5 runs (with different seeds) for each of the metrics.
 
 | Task  | Metric                       | Result      |
 |-------|------------------------------|-------------|
-| CoLA  | Matthew's corr               | 48.87       |
-| SST-2 | Accuracy                     | 91.74       |
-| MRPC  | F1/Accuracy                  | 90.70/86.27 |
-| STS-B | Person/Spearman corr.        | 91.39/91.04 |
-| QQP   | Accuracy/F1                  | 90.79/87.66 |
-| MNLI  | Matched acc./Mismatched acc. | 83.70/84.83 |
-| QNLI  | Accuracy                     | 89.31       |
-| RTE   | Accuracy                     | 71.43       |
-| WNLI  | Accuracy                     | 43.66       |
+| CoLA  | Matthew's corr               | 49.23       |
+| SST-2 | Accuracy                     | 91.97       |
+| MRPC  | F1/Accuracy                  | 89.47/85.29 |
+| STS-B | Person/Spearman corr.        | 83.95/83.70 |
+| QQP   | Accuracy/F1                  | 88.40/84.31 |
+| MNLI  | Matched acc./Mismatched acc. | 80.61/81.08 |
+| QNLI  | Accuracy                     | 87.46       |
+| RTE   | Accuracy                     | 61.73       |
+| WNLI  | Accuracy                     | 45.07       |
 
 Some of these results are significantly different from the ones reported on the test set
 of GLUE benchmark on the website. For QQP and WNLI, please refer to [FAQ #12](https://gluebenchmark.com/faq) on the webite.
@@ -402,12 +404,12 @@ exact_match = 81.22
 #### Distributed training
 
 
-Here is an example using distributed training on 8 V100 GPUs and Bert Whole Word Masking uncased model to reach a F1 > 93 on SQuAD1.0:
+Here is an example using distributed training on 8 V100 GPUs and Bert Whole Word Masking uncased model to reach a F1 > 93 on SQuAD1.1:
 
 ```bash
-python -m torch.distributed.launch --nproc_per_node=8 run_squad.py \
+python -m torch.distributed.launch --nproc_per_node=8 ./examples/run_squad.py \
     --model_type bert \
-    --model_name_or_path bert-base-cased \
+    --model_name_or_path bert-large-uncased-whole-word-masking \
     --do_train \
     --do_eval \
     --do_lower_case \
@@ -417,9 +419,9 @@ python -m torch.distributed.launch --nproc_per_node=8 run_squad.py \
     --num_train_epochs 2 \
     --max_seq_length 384 \
     --doc_stride 128 \
-    --output_dir ../models/wwm_uncased_finetuned_squad/ \
-    --per_gpu_train_batch_size 24 \
-    --gradient_accumulation_steps 12
+    --output_dir ./examples/models/wwm_uncased_finetuned_squad/ \
+    --per_gpu_eval_batch_size=3   \
+    --per_gpu_train_batch_size=3   \
 ```
 
 Training with the previously defined hyper-parameters yields the following results:
@@ -758,4 +760,42 @@ python run_mmimdb.py \
     --patience 5
 ```
 
+## Adversarial evaluation of model performances
 
+Here is an example on evaluating a model using adversarial evaluation of natural language inference with the Heuristic Analysis for NLI Systems (HANS) dataset [McCoy et al., 2019](https://arxiv.org/abs/1902.01007). The example was gracefully provided by [Nafise Sadat Moosavi](https://github.com/ns-moosavi).
+
+The HANS dataset can be downloaded from [this location](https://github.com/tommccoy1/hans).
+
+This is an example of using test_hans.py:
+
+```bash
+export HANS_DIR=path-to-hans
+export MODEL_TYPE=type-of-the-model-e.g.-bert-roberta-xlnet-etc
+export MODEL_PATH=path-to-the-model-directory-that-is-trained-on-NLI-e.g.-by-using-run_glue.py
+
+python examples/test_hans.py \
+        --task_name hans \
+        --model_type $MODEL_TYPE \
+        --do_eval \
+        --do_lower_case \
+        --data_dir $HANS_DIR \
+        --model_name_or_path $MODEL_PATH \
+        --max_seq_length 128 \
+        -output_dir $MODEL_PATH \
+```
+
+This will create the hans_predictions.txt file in MODEL_PATH, which can then be evaluated using hans/evaluate_heur_output.py from the HANS dataset.
+
+The results of the BERT-base model that is trained on MNLI using batch size 8 and the random seed 42 on the HANS dataset is as follows:
+
+```bash
+Heuristic entailed results:
+lexical_overlap: 0.9702
+subsequence: 0.9942
+constituent: 0.9962
+
+Heuristic non-entailed results:
+lexical_overlap: 0.199
+subsequence: 0.0396
+constituent: 0.118
+```

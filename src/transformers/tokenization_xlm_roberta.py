@@ -19,8 +19,6 @@ import logging
 import os
 from shutil import copyfile
 
-import sentencepiece as spm
-
 from transformers.tokenization_utils import PreTrainedTokenizer
 
 from .tokenization_xlnet import SPIECE_UNDERLINE
@@ -75,7 +73,7 @@ class XLMRobertaTokenizer(PreTrainedTokenizer):
         mask_token="<mask>",
         **kwargs
     ):
-        super(XLMRobertaTokenizer, self).__init__(
+        super().__init__(
             bos_token=bos_token,
             eos_token=eos_token,
             unk_token=unk_token,
@@ -87,6 +85,16 @@ class XLMRobertaTokenizer(PreTrainedTokenizer):
         )
         self.max_len_single_sentence = self.max_len - 2  # take into account special tokens
         self.max_len_sentences_pair = self.max_len - 4  # take into account special tokens
+
+        try:
+            import sentencepiece as spm
+        except ImportError:
+            logger.warning(
+                "You need to install SentencePiece to use XLMRobertaTokenizer: https://github.com/google/sentencepiece"
+                "pip install sentencepiece"
+            )
+            raise
+
         self.sp_model = spm.SentencePieceProcessor()
         self.sp_model.Load(str(vocab_file))
         self.vocab_file = vocab_file
@@ -105,6 +113,24 @@ class XLMRobertaTokenizer(PreTrainedTokenizer):
 
         self.fairseq_tokens_to_ids["<mask>"] = len(self.sp_model) + len(self.fairseq_tokens_to_ids)
         self.fairseq_ids_to_tokens = {v: k for k, v in self.fairseq_tokens_to_ids.items()}
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state["sp_model"] = None
+        return state
+
+    def __setstate__(self, d):
+        self.__dict__ = d
+        try:
+            import sentencepiece as spm
+        except ImportError:
+            logger.warning(
+                "You need to install SentencePiece to use XLMRobertaTokenizer: https://github.com/google/sentencepiece"
+                "pip install sentencepiece"
+            )
+            raise
+        self.sp_model = spm.SentencePieceProcessor()
+        self.sp_model.Load(self.vocab_file)
 
     def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
         """
@@ -150,10 +176,7 @@ class XLMRobertaTokenizer(PreTrainedTokenizer):
     def create_token_type_ids_from_sequences(self, token_ids_0, token_ids_1=None):
         """
         Creates a mask from the two sequences passed to be used in a sequence-pair classification task.
-        A RoBERTa sequence pair mask has the following format:
-        0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1
-        | first sequence    | second sequence
-
+        RoBERTa does not make use of token type ids, therefore a list of zeros is returned.
         if token_ids_1 is None, only returns the first portion of the mask (0's).
         """
         sep = [self.sep_token_id]
@@ -161,7 +184,7 @@ class XLMRobertaTokenizer(PreTrainedTokenizer):
 
         if token_ids_1 is None:
             return len(cls + token_ids_0 + sep) * [0]
-        return len(cls + token_ids_0 + sep + sep) * [0] + len(token_ids_1 + sep) * [1]
+        return len(cls + token_ids_0 + sep + sep + token_ids_1 + sep) * [0]
 
     @property
     def vocab_size(self):

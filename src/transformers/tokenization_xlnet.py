@@ -77,7 +77,7 @@ class XLNetTokenizer(PreTrainedTokenizer):
         additional_special_tokens=["<eop>", "<eod>"],
         **kwargs
     ):
-        super(XLNetTokenizer, self).__init__(
+        super().__init__(
             bos_token=bos_token,
             eos_token=eos_token,
             unk_token=unk_token,
@@ -236,11 +236,10 @@ class XLNetTokenizer(PreTrainedTokenizer):
         if token_ids_1 is None, only returns the first portion of the mask (0's).
         """
         sep = [self.sep_token_id]
-        cls = [self.cls_token_id]
         cls_segment_id = [2]
 
         if token_ids_1 is None:
-            return len(token_ids_0 + sep + cls) * [0]
+            return len(token_ids_0 + sep) * [0] + cls_segment_id
         return len(token_ids_0 + sep) * [0] + len(token_ids_1 + sep) * [1] + cls_segment_id
 
     def save_vocabulary(self, save_directory):
