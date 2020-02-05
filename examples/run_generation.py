@@ -39,6 +39,7 @@ from transformers import (
     XLNetTokenizer,
 )
 
+from metrics import Metrics
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s", datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO,
@@ -204,6 +205,7 @@ def main():
     args.length = adjust_length_to_model(args.length, max_sequence_length=model.config.max_position_embeddings)
     logger.info(args)
 
+    metric = Metrics()
     while True:
         prompt_text = args.prompt if args.prompt else input("Model prompt >>> ")
 
@@ -214,7 +216,7 @@ def main():
             prompt_text = prepare_input(args, model, tokenizer, prompt_text)
         encoded_prompt = tokenizer.encode(prompt_text, add_special_tokens=False, return_tensors="pt")
         encoded_prompt = encoded_prompt.to(args.device)
-
+        print("length: ", args.length)
         output_sequences = model.generate(
             input_ids=encoded_prompt,
             max_length=args.length,
@@ -231,6 +233,13 @@ def main():
         text = text[: text.find(args.stop_token) if args.stop_token else None]
 
         print(text)
+        dist1 = metric.distinct_1(text)
+        print("dist1: ", dist1)
+        dist2 = metric.distinct_2(text)
+        print("dist2: ", dist2)
+        dist3 = metric.distinct_3(text)
+        print("dist3: ", dist3)
+
 
     return text
 
