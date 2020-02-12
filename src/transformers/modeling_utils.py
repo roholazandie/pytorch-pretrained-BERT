@@ -839,10 +839,9 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin):
                 unfinished_sents.mul_(tokens_to_add.ne(eos_token_id).long())
             cur_len = cur_len + 1
 
-            print("here")
             # stop when there is a </s> in each sentence, or if we exceed the maximul length
-            # if unfinished_sents.max() == 0:
-            #     #break
+            if unfinished_sents.max() == 0:
+                break
 
         # add eos_token_ids to unfinished sentences
         if cur_len == max_length:

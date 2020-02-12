@@ -39,6 +39,7 @@ from transformers import (
     XLNetTokenizer,
 )
 
+from metrics import Metrics
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s", datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO,
@@ -163,17 +164,17 @@ def main():
     )
 
     parser.add_argument("--prompt", type=str, default="")
-    parser.add_argument("--length", type=int, default=20)
+    parser.add_argument("--length", type=int, default=500)
     parser.add_argument("--stop_token", type=str, default=None, help="Token at which text generation is stopped")
 
     parser.add_argument(
         "--temperature",
         type=float,
-        default=1.0,
+        default=0.3,
         help="temperature of 1.0 has no effect, lower tend toward greedy sampling",
     )
     parser.add_argument(
-        "--repetition_penalty", type=float, default=1.0, help="primarily useful for CTRL model; in that case, use 1.2"
+        "--repetition_penalty", type=float, default=1.2, help="primarily useful for CTRL model; in that case, use 1.2"
     )
     parser.add_argument("--k", type=int, default=0)
     parser.add_argument("--p", type=float, default=0.9)
@@ -197,39 +198,85 @@ def main():
     except KeyError:
         raise KeyError("the model {} you specified is not supported. You are welcome to add it and open a PR :)")
 
-    tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path)
-    model = model_class.from_pretrained(args.model_name_or_path)
+    tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path, cache_dir="/media/data2/rohola_data/cached_models/")
+    model = model_class.from_pretrained(args.model_name_or_path, cache_dir="/media/data2/rohola_data/cached_models/")
     model.to(args.device)
 
     args.length = adjust_length_to_model(args.length, max_sequence_length=model.config.max_position_embeddings)
     logger.info(args)
 
-    prompt_text = args.prompt if args.prompt else input("Model prompt >>> ")
+    metric = Metrics()
+    all_texts = []
+    # for i in range(10):
+         #prompt_text = args.prompt if args.prompt else input("Model prompt >>> ")
 
-    # Different models need different input formatting and/or extra arguments
-    requires_preprocessing = args.model_type in PREPROCESSING_FUNCTIONS.keys()
-    if requires_preprocessing:
-        prepare_input = PREPROCESSING_FUNCTIONS.get(args.model_type)
-        prompt_text = prepare_input(args, model, tokenizer, prompt_text)
-    encoded_prompt = tokenizer.encode(prompt_text, add_special_tokens=False, return_tensors="pt")
-    encoded_prompt = encoded_prompt.to(args.device)
+    dists1 = []
+    dists2 = []
+    dists3 = []
+    with open("/media/data2/rohola_data/film_reviews.txt") as fr:
+        for i, line in enumerate(fr):
+            #print(" ".join(line.split()[:4]))
+            prompt_text = " ".join(line.split()[:4])
+            prompt_text = "Opinion " + prompt_text
+            # if i < 100:
+            #     continue
+            #
+            #prompt_text = "Politics this is a"
+            # Different models need different input formatting and/or extra arguments
+            requires_preprocessing = args.model_type in PREPROCESSING_FUNCTIONS.keys()
+            if requires_preprocessing:
+                prepare_input = PREPROCESSING_FUNCTIONS.get(args.model_type)
+                prompt_text = prepare_input(args, model, tokenizer, prompt_text)
+            encoded_prompt = tokenizer.encode(prompt_text, add_special_tokens=False, return_tensors="pt")
+            encoded_prompt = encoded_prompt.to(args.device)
 
-    output_sequences = model.generate(
-        input_ids=encoded_prompt,
-        max_length=args.length,
-        temperature=args.temperature,
-        top_k=args.k,
-        top_p=args.p,
-        repetition_penalty=args.repetition_penalty,
-        do_sample=True,
-    )
+            output_sequences = model.generate(
+                input_ids=encoded_prompt,
+                max_length=args.length,
+                temperature=args.temperature,
+                top_k=args.k,
+                top_p=args.p,
+                repetition_penalty=args.repetition_penalty,
+                do_sample=True,
+            )
 
-    # Batch size == 1. to add more examples please use num_return_sequences > 1
-    generated_sequence = output_sequences[0].tolist()
-    text = tokenizer.decode(generated_sequence, clean_up_tokenization_spaces=True)
-    text = text[: text.find(args.stop_token) if args.stop_token else None]
+            # Batch size == 1. to add more examples please use num_return_sequences > 1
+            generated_sequence = output_sequences[0].tolist()
+            text = tokenizer.decode(generated_sequence, clean_up_tokenization_spaces=True)
+            text = text[: text.find(args.stop_token) if args.stop_token else None]
 
-    print(text)
+            if len(text.split()) > 50:
+                print(text)
+                print("###########################")
+                text = " ".join(text.split()[1:])
+                all_texts.append(text)
+                dist1 = metric.distinct_1(text)
+                print("dist1: ", dist1)
+                dists1.append(dist1)
+
+                dist2 = metric.distinct_2(text)
+                print("dist2: ", dist2)
+                dists2.append(dist2)
+
+                dist3 = metric.distinct_3(text)
+                print("dist3: ", dist3)
+                dists3.append(dist3)
+
+    # text = " ".join(all_texts)
+    # dist1 = metric.distinct_1(text)
+    # print("dist1: ", dist1)
+    # dist2 = metric.distinct_2(text)
+    # print("dist2: ", dist2)
+    # dist3 = metric.distinct_3(text)
+    # print("dist3: ", dist3)
+    print(dists1)
+    print(dists2)
+    print(dists3)
+
+    print("dist1: ", np.mean(dists1))
+    print("dist3: ", np.mean(dists2))
+    print("dist3: ", np.mean(dists3))
+
 
     return text
 
