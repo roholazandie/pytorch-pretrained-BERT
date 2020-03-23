@@ -24,6 +24,7 @@ from .utils import CACHE_DIR, require_torch, slow, torch_device
 
 
 if is_torch_available():
+    import torch
     from transformers import (
         XLMConfig,
         XLMModel,
@@ -396,3 +397,35 @@ class XLMModelTest(ModelTesterMixin, unittest.TestCase):
         for model_name in list(XLM_PRETRAINED_MODEL_ARCHIVE_MAP.keys())[:1]:
             model = XLMModel.from_pretrained(model_name, cache_dir=CACHE_DIR)
             self.assertIsNotNone(model)
+
+
+class XLMModelLanguageGenerationTest(unittest.TestCase):
+    @slow
+    def test_lm_generate_xlm_mlm_en_2048(self):
+        model = XLMWithLMHeadModel.from_pretrained("xlm-mlm-en-2048")
+        input_ids = torch.tensor([[14, 447]], dtype=torch.long, device=torch_device)  # the president
+        expected_output_ids = [
+            14,
+            447,
+            14,
+            447,
+            14,
+            447,
+            14,
+            447,
+            14,
+            447,
+            14,
+            447,
+            14,
+            447,
+            14,
+            447,
+            14,
+            447,
+            14,
+            447,
+        ]  # the president the president the president the president the president the president the president the president the president the president
+        # TODO(PVP): this and other input_ids I tried for generation give pretty bad results. Not sure why. Model might just not be made for auto-regressive inference
+        output_ids = model.generate(input_ids, do_sample=False)
+        self.assertListEqual(output_ids[0].numpy().tolist(), expected_output_ids)

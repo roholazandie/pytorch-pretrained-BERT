@@ -22,7 +22,7 @@ pip install -r ./examples/requirements.txt
 | [GLUE](#glue) | Examples running BERT/XLM/XLNet/RoBERTa on the 9 GLUE tasks. Examples feature distributed training as well as half-precision. |
 | [SQuAD](#squad) | Using BERT/RoBERTa/XLNet/XLM for question answering, examples with distributed training. |
 | [Multiple Choice](#multiple-choice) | Examples running BERT/XLNet/RoBERTa on the SWAG/RACE/ARC tasks. |
-| [Named Entity Recognition](#named-entity-recognition) | Using BERT for Named Entity Recognition (NER) on the CoNLL 2003 dataset, examples with distributed training. |
+| [Named Entity Recognition](https://github.com/huggingface/transformers/tree/master/examples/ner) | Using BERT for Named Entity Recognition (NER) on the CoNLL 2003 dataset, examples with distributed training. |
 | [XNLI](#xnli) | Examples running BERT/XLM on the XNLI benchmark. |
 | [Adversarial evaluation of model performances](#adversarial-evaluation-of-model-performances) | Testing a model with adversarial evaluation of natural language inference on the Heuristic Analysis for NLI Systems (HANS) dataset (McCoy et al., 2019.) |
 
@@ -379,7 +379,7 @@ export SQUAD_DIR=/path/to/SQUAD
 
 python run_squad.py \
   --model_type bert \
-  --model_name_or_path bert-base-cased \
+  --model_name_or_path bert-base-uncased \
   --do_train \
   --do_eval \
   --do_lower_case \
@@ -442,14 +442,14 @@ This example code fine-tunes XLNet on both SQuAD1.0 and SQuAD2.0 dataset. See ab
 ```bash
 export SQUAD_DIR=/path/to/SQUAD
 
-python /data/home/hlu/transformers/examples/run_squad.py \
+python run_squad.py \
     --model_type xlnet \
     --model_name_or_path xlnet-large-cased \
     --do_train \
     --do_eval \
     --do_lower_case \
-    --train_file /data/home/hlu/notebooks/NLP/examples/question_answering/train-v1.1.json \
-    --predict_file /data/home/hlu/notebooks/NLP/examples/question_answering/dev-v1.1.json \
+    --train_file $SQUAD_DIR/train-v1.1.json \
+    --predict_file $SQUAD_DIR/dev-v1.1.json \
     --learning_rate 3e-5 \
     --num_train_epochs 2 \
     --max_seq_length 384 \

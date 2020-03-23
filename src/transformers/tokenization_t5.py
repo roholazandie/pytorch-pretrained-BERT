@@ -98,6 +98,12 @@ class T5Tokenizer(PreTrainedTokenizer):
             additional_special_tokens=additional_special_tokens,
             **kwargs,
         )
+        self.max_len_single_sentence = (
+            self.max_len
+        )  # no default special tokens - you can update this value if you add special tokens
+        self.max_len_sentences_pair = (
+            self.max_len
+        )  # no default special tokens - you can update this value if you add special tokens
 
         try:
             import sentencepiece as spm
@@ -119,6 +125,11 @@ class T5Tokenizer(PreTrainedTokenizer):
     def vocab_size(self):
         return self.sp_model.get_piece_size() + self._extra_ids
 
+    def get_vocab(self):
+        vocab = {self.convert_ids_to_tokens(i): i for i in range(self.vocab_size)}
+        vocab.update(self.added_tokens_encoder)
+        return vocab
+
     def __getstate__(self):
         state = self.__dict__.copy()
         state["sp_model"] = None
@@ -130,7 +141,7 @@ class T5Tokenizer(PreTrainedTokenizer):
             import sentencepiece as spm
         except ImportError:
             logger.warning(
-                "You need to install SentencePiece to use XLNetTokenizer: https://github.com/google/sentencepiece"
+                "You need to install SentencePiece to use T5Tokenizer: https://github.com/google/sentencepiece"
                 "pip install sentencepiece"
             )
             raise

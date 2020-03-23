@@ -2,9 +2,16 @@ import unittest
 from typing import Iterable, List, Optional
 
 from transformers import pipeline
-from transformers.pipelines import Pipeline
+from transformers.pipelines import (
+    FeatureExtractionPipeline,
+    FillMaskPipeline,
+    NerPipeline,
+    Pipeline,
+    QuestionAnsweringPipeline,
+    TextClassificationPipeline,
+)
 
-from .utils import require_tf, require_torch
+from .utils import require_tf, require_torch, slow
 
 
 QA_FINETUNED_MODELS = [
@@ -240,6 +247,16 @@ class MonoColumnInputTestCase(unittest.TestCase):
                 expected_check_keys=["sequence"],
             )
 
+    @require_torch
+    def test_summarization(self):
+        valid_inputs = ["A string like this", ["list of strings entry 1", "list of strings v2"]]
+        invalid_inputs = [4, "<mask>"]
+        mandatory_keys = ["summary_text"]
+        nlp = pipeline(task="summarization")
+        self._test_mono_column_pipeline(
+            nlp, valid_inputs, invalid_inputs, mandatory_keys,
+        )
+
 
 class MultiColumnInputTestCase(unittest.TestCase):
     def _test_multicolumn_pipeline(self, nlp, valid_inputs: list, invalid_inputs: list, output_keys: Iterable[str]):
@@ -284,7 +301,7 @@ class MultiColumnInputTestCase(unittest.TestCase):
             self._test_multicolumn_pipeline(nlp, valid_samples, invalid_samples, mandatory_output_keys)
 
     @require_tf
-    @unittest.skip("This test is failing intermittently. Skipping it until we resolve.")
+    @slow
     def test_tf_question_answering(self):
         mandatory_output_keys = {"score", "answer", "start", "end"}
         valid_samples = [
@@ -304,3 +321,30 @@ class MultiColumnInputTestCase(unittest.TestCase):
         for tokenizer, model, config in TF_QA_FINETUNED_MODELS:
             nlp = pipeline(task="question-answering", model=model, config=config, tokenizer=tokenizer, framework="tf")
             self._test_multicolumn_pipeline(nlp, valid_samples, invalid_samples, mandatory_output_keys)
+
+
+class PipelineCommonTests(unittest.TestCase):
+
+    pipelines = (
+        NerPipeline,
+        FeatureExtractionPipeline,
+        QuestionAnsweringPipeline,
+        FillMaskPipeline,
+        TextClassificationPipeline,
+    )
+
+    @slow
+    @require_tf
+    def test_tf_defaults(self):
+        # Test that pipelines can be correctly loaded without any argument
+        for default_pipeline in self.pipelines:
+            with self.subTest(msg="Testing Torch defaults with PyTorch and {}".format(default_pipeline.task)):
+                default_pipeline(framework="tf")
+
+    @slow
+    @require_torch
+    def test_pt_defaults(self):
+        # Test that pipelines can be correctly loaded without any argument
+        for default_pipeline in self.pipelines:
+            with self.subTest(msg="Testing Torch defaults with PyTorch and {}".format(default_pipeline.task)):
+                default_pipeline(framework="pt")
