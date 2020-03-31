@@ -231,7 +231,7 @@ class TFPreTrainedModel(tf.keras.Model, TFModelUtilsMixin):
 
     def save_pretrained(self, save_directory):
         """ Save a model and its configuration file to a directory, so that it
-            can be re-loaded using the `:func:`~transformers.PreTrainedModel.from_pretrained`` class method.
+            can be re-loaded using the :func:`~transformers.PreTrainedModel.from_pretrained` class method.
         """
         assert os.path.isdir(
             save_directory
@@ -523,8 +523,8 @@ class TFPreTrainedModel(tf.keras.Model, TFModelUtilsMixin):
             pad_token_id: (`optional`) int
                 Pad token. Defaults to pad_token_id as defined in the models config.
 
-            eos_token_ids: (`optional`) int or list of int
-                End of sequence token or list of tokens to stop the generation. Default to 0.
+            eos_token_id: (`optional`) int
+                EOS token. Defaults to eos_token_id as defined in the models config.
 
             length_penalty: (`optional`) float
                 Exponential penalty to the length. Default to 1.
@@ -541,7 +541,7 @@ class TFPreTrainedModel(tf.keras.Model, TFModelUtilsMixin):
                 ``1`` for tokens that are NOT MASKED, ``0`` for MASKED tokens.
                 Defaults to `None`.
 
-            `What are attention masks? <../glossary.html#attention-mask>`__
+                `What are attention masks? <../glossary.html#attention-mask>`__
 
             decoder_start_token_id=None: (`optional`) int
                 If an encoder-decoder model starts decoding with a different token than BOS.
@@ -999,10 +999,12 @@ class TFPreTrainedModel(tf.keras.Model, TFModelUtilsMixin):
             # set eos token prob to zero if min_length is not reached
             if eos_token_id is not None and cur_len < min_length:
                 # create eos_token_id boolean mask
+                num_batch_hypotheses = batch_size * num_beams
+
                 is_token_logit_eos_token = tf.convert_to_tensor(
                     [True if token is eos_token_id else False for token in range(vocab_size)], dtype=tf.bool
                 )
-                eos_token_indices_mask = tf.broadcast_to(is_token_logit_eos_token, [batch_size, vocab_size])
+                eos_token_indices_mask = tf.broadcast_to(is_token_logit_eos_token, [num_batch_hypotheses, vocab_size])
 
                 scores = set_tensor_by_indices_to_value(scores, eos_token_indices_mask, -float("inf"))
 
