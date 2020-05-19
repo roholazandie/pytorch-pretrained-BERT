@@ -60,9 +60,6 @@ class BertJapaneseTokenizationTest(TokenizerTesterMixin, unittest.TestCase):
         with open(self.vocab_file, "w", encoding="utf-8") as vocab_writer:
             vocab_writer.write("".join([x + "\n" for x in vocab_tokens]))
 
-    def get_tokenizer(self, **kwargs):
-        return BertJapaneseTokenizer.from_pretrained(self.tmpdirname, **kwargs)
-
     def get_input_output_texts(self):
         input_text = "こんにちは、世界。 \nこんばんは、世界。"
         output_text = "こんにちは 、 世界 。 こんばんは 、 世界 。"
@@ -89,6 +86,20 @@ class BertJapaneseTokenizationTest(TokenizerTesterMixin, unittest.TestCase):
         self.assertListEqual(
             tokenizer.tokenize(" \tｱｯﾌﾟﾙストアでiPhone８ が  \n 発売された　。  "),
             ["アップルストア", "で", "iphone", "8", "が", "発売", "さ", "れ", "た", "。"],
+        )
+
+    def test_mecab_tokenizer_with_option(self):
+        try:
+            tokenizer = MecabTokenizer(
+                do_lower_case=True, normalize_text=False, mecab_option="-d /usr/local/lib/mecab/dic/jumandic"
+            )
+        except RuntimeError:
+            # if dict doesn't exist in the system, previous code raises this error.
+            return
+
+        self.assertListEqual(
+            tokenizer.tokenize(" \tｱｯﾌﾟﾙストアでiPhone８ が  \n 発売された　。  "),
+            ["ｱｯﾌﾟﾙストア", "で", "iPhone", "８", "が", "発売", "さ", "れた", "\u3000", "。"],
         )
 
     def test_mecab_tokenizer_no_normalize(self):

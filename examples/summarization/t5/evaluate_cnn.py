@@ -2,9 +2,9 @@ import argparse
 from pathlib import Path
 
 import torch
+from rouge_score import rouge_scorer, scoring
 from tqdm import tqdm
 
-from rouge_score import rouge_scorer, scoring
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 
 
@@ -64,7 +64,7 @@ def run_generate():
     parser.add_argument(
         "model_size",
         type=str,
-        help="T5 model size, either 't5-small', 't5-base' or 't5-large'. Defaults to base.",
+        help="T5 model size, either 't5-small', 't5-base', 't5-large', 't5-3b', 't5-11b'. Defaults to 't5-base'.",
         default="t5-base",
     )
     parser.add_argument(
