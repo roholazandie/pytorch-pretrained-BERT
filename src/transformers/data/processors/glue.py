@@ -518,6 +518,50 @@ class WnliProcessor(DataProcessor):
         return examples
 
 
+class SstFullProcessor(DataProcessor):
+    """Processor for the SST-2 data set (GLUE version)."""
+    def get_example_from_tensor_dict(self, tensor_dict):
+        """See base class."""
+        return InputExample(
+            tensor_dict["idx"].numpy(),
+            tensor_dict["sentence"].numpy().decode("utf-8"),
+            None,
+            str(tensor_dict["label"].numpy()),
+        )
+
+    def get_train_examples(self, data_dir):
+        """See base class."""
+        return self._create_examples(self._read_tsv(os.path.join(data_dir, "train.tsv")), "train")
+
+    def get_dev_examples(self, data_dir):
+        """See base class."""
+        return self._create_examples(self._read_tsv(os.path.join(data_dir, "dev.tsv")), "dev")
+
+    def get_labels(self):
+        """See base class."""
+        return ["0", "1", "2"]
+
+    def _create_examples(self, lines, set_type):
+        """Creates examples for the training and dev sets."""
+        examples = []
+        for (i, line) in enumerate(lines):
+            guid = "%s-%s" % (set_type, i)
+            l = int(line[0])
+            if l == 1 or l == 2:
+                label = "0"
+            elif l == 3:
+                label = "1"
+            elif l == 4 or l == 5:
+                label = "2"
+            else:
+                raise ValueError("Unknown label value")
+
+            text_a = line[1]
+            examples.append(InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
+        return examples
+
+
+
 glue_tasks_num_labels = {
     "cola": 2,
     "mnli": 3,
@@ -541,6 +585,7 @@ glue_processors = {
     "qnli": QnliProcessor,
     "rte": RteProcessor,
     "wnli": WnliProcessor,
+    "sst-full": SstFullProcessor,
 }
 
 glue_output_modes = {
@@ -554,4 +599,5 @@ glue_output_modes = {
     "qnli": "classification",
     "rte": "classification",
     "wnli": "classification",
+    "sst-full": "classification",
 }
