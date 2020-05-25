@@ -29,6 +29,7 @@ if is_torch_available():
         LongformerConfig,
         LongformerModel,
         LongformerForMaskedLM,
+        LongformerForQuestionAnswering,
     )
 
 
@@ -171,6 +172,28 @@ class LongformerModelTester(object):
         )
         self.check_loss_output(result)
 
+    def create_and_check_longformer_for_question_answering(
+        self, config, input_ids, token_type_ids, input_mask, sequence_labels, token_labels, choice_labels
+    ):
+        model = LongformerForQuestionAnswering(config=config)
+        model.to(torch_device)
+        model.eval()
+        loss, start_logits, end_logits = model(
+            input_ids,
+            attention_mask=input_mask,
+            token_type_ids=token_type_ids,
+            start_positions=sequence_labels,
+            end_positions=sequence_labels,
+        )
+        result = {
+            "loss": loss,
+            "start_logits": start_logits,
+            "end_logits": end_logits,
+        }
+        self.parent.assertListEqual(list(result["start_logits"].size()), [self.batch_size, self.seq_length])
+        self.parent.assertListEqual(list(result["end_logits"].size()), [self.batch_size, self.seq_length])
+        self.check_loss_output(result)
+
     def prepare_config_and_inputs_for_common(self):
         config_and_inputs = self.prepare_config_and_inputs()
         (
@@ -184,6 +207,26 @@ class LongformerModelTester(object):
         ) = config_and_inputs
         inputs_dict = {"input_ids": input_ids, "token_type_ids": token_type_ids, "attention_mask": input_mask}
         return config, inputs_dict
+
+    def prepare_config_and_inputs_for_question_answering(self):
+        config_and_inputs = self.prepare_config_and_inputs()
+        (
+            config,
+            input_ids,
+            token_type_ids,
+            input_mask,
+            sequence_labels,
+            token_labels,
+            choice_labels,
+        ) = config_and_inputs
+
+        # Replace sep_token_id by some random id
+        input_ids[input_ids == config.sep_token_id] = torch.randint(0, config.vocab_size, (1,)).item()
+        # Make sure there are exactly three sep_token_id
+        input_ids[:, -3:] = config.sep_token_id
+        input_mask = torch.ones_like(input_ids)
+
+        return config, input_ids, token_type_ids, input_mask, sequence_labels, token_labels, choice_labels
 
 
 @require_torch
@@ -209,37 +252,48 @@ class LongformerModelTest(ModelTesterMixin, unittest.TestCase):
         config_and_inputs = self.model_tester.prepare_config_and_inputs()
         self.model_tester.create_and_check_longformer_for_masked_lm(*config_and_inputs)
 
+    def test_longformer_for_question_answering(self):
+        config_and_inputs = self.model_tester.prepare_config_and_inputs_for_question_answering()
+        self.model_tester.create_and_check_longformer_for_question_answering(*config_and_inputs)
+
 
 class LongformerModelIntegrationTest(unittest.TestCase):
     @slow
     def test_inference_no_head(self):
         model = LongformerModel.from_pretrained("longformer-base-4096")
+        model.to(torch_device)
 
         # 'Hello world! ' repeated 1000 times
-        input_ids = torch.tensor([[0] + [20920, 232, 328, 1437] * 1000 + [2]])  # long input
+        input_ids = torch.tensor(
+            [[0] + [20920, 232, 328, 1437] * 1000 + [2]], dtype=torch.long, device=torch_device
+        )  # long input
 
         attention_mask = torch.ones(input_ids.shape, dtype=torch.long, device=input_ids.device)
         attention_mask[:, [1, 4, 21]] = 2  # Set global attention on a few random positions
 
         output = model(input_ids, attention_mask=attention_mask)[0]
 
-        expected_output_sum = torch.tensor(74585.8594)
-        expected_output_mean = torch.tensor(0.0243)
+        expected_output_sum = torch.tensor(74585.8594, device=torch_device)
+        expected_output_mean = torch.tensor(0.0243, device=torch_device)
         self.assertTrue(torch.allclose(output.sum(), expected_output_sum, atol=1e-4))
         self.assertTrue(torch.allclose(output.mean(), expected_output_mean, atol=1e-4))
 
     @slow
     def test_inference_masked_lm(self):
         model = LongformerForMaskedLM.from_pretrained("longformer-base-4096")
+        model.to(torch_device)
 
         # 'Hello world! ' repeated 1000 times
-        input_ids = torch.tensor([[0] + [20920, 232, 328, 1437] * 1000 + [2]])  # long input
+        input_ids = torch.tensor(
+            [[0] + [20920, 232, 328, 1437] * 1000 + [2]], dtype=torch.long, device=torch_device
+        )  # long input
 
         loss, prediction_scores = model(input_ids, masked_lm_labels=input_ids)
 
-        expected_loss = torch.tensor(0.0620)
-        expected_prediction_scores_sum = torch.tensor(-6.1599e08)
-        expected_prediction_scores_mean = torch.tensor(-3.0622)
+        expected_loss = torch.tensor(0.0620, device=torch_device)
+        expected_prediction_scores_sum = torch.tensor(-6.1599e08, device=torch_device)
+        expected_prediction_scores_mean = torch.tensor(-3.0622, device=torch_device)
+        input_ids = input_ids.to(torch_device)
 
         self.assertTrue(torch.allclose(loss, expected_loss, atol=1e-4))
         self.assertTrue(torch.allclose(prediction_scores.sum(), expected_prediction_scores_sum, atol=1e-4))
