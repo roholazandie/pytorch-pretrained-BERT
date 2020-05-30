@@ -104,7 +104,10 @@ from .modeling_gpt2 import GPT2_PRETRAINED_MODEL_ARCHIVE_MAP, GPT2LMHeadModel, G
 from .modeling_longformer import (
     LONGFORMER_PRETRAINED_MODEL_ARCHIVE_MAP,
     LongformerForMaskedLM,
+    LongformerForMultipleChoice,
     LongformerForQuestionAnswering,
+    LongformerForSequenceClassification,
+    LongformerForTokenClassification,
     LongformerModel,
 )
 from .modeling_marian import MarianMTModel
@@ -252,6 +255,7 @@ MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING = OrderedDict(
         (CamembertConfig, CamembertForSequenceClassification),
         (XLMRobertaConfig, XLMRobertaForSequenceClassification),
         (BartConfig, BartForSequenceClassification),
+        (LongformerConfig, LongformerForSequenceClassification),
         (RobertaConfig, RobertaForSequenceClassification),
         (BertConfig, BertForSequenceClassification),
         (XLNetConfig, XLNetForSequenceClassification),
@@ -280,6 +284,7 @@ MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING = OrderedDict(
         (CamembertConfig, CamembertForTokenClassification),
         (XLMConfig, XLMForTokenClassification),
         (XLMRobertaConfig, XLMRobertaForTokenClassification),
+        (LongformerConfig, LongformerForTokenClassification),
         (RobertaConfig, RobertaForTokenClassification),
         (BertConfig, BertForTokenClassification),
         (XLNetConfig, XLNetForTokenClassification),
@@ -293,6 +298,7 @@ MODEL_FOR_MULTIPLE_CHOICE_MAPPING = OrderedDict(
     [
         (CamembertConfig, CamembertForMultipleChoice),
         (XLMRobertaConfig, XLMRobertaForMultipleChoice),
+        (LongformerConfig, LongformerForMultipleChoice),
         (RobertaConfig, RobertaForMultipleChoice),
         (BertConfig, BertForMultipleChoice),
         (XLNetConfig, XLNetForMultipleChoice),
