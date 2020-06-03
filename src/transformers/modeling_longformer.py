@@ -16,6 +16,7 @@
 
 import logging
 import math
+import warnings
 
 import torch
 import torch.nn as nn
@@ -30,13 +31,14 @@ from .modeling_roberta import RobertaLMHead, RobertaModel
 
 logger = logging.getLogger(__name__)
 
-LONGFORMER_PRETRAINED_MODEL_ARCHIVE_MAP = {
-    "allenai/longformer-base-4096": "https://s3.amazonaws.com/models.huggingface.co/bert/allenai/longformer-base-4096/pytorch_model.bin",
-    "allenai/longformer-large-4096": "https://s3.amazonaws.com/models.huggingface.co/bert/allenai/longformer-large-4096/pytorch_model.bin",
-    "allenai/longformer-large-4096-finetuned-triviaqa": "https://s3.amazonaws.com/models.huggingface.co/bert/allenai/longformer-large-4096-finetuned-triviaqa/pytorch_model.bin",
-    "allenai/longformer-base-4096-extra.pos.embd.only": "https://s3.amazonaws.com/models.huggingface.co/bert/allenai/longformer-base-4096-extra.pos.embd.only/pytorch_model.bin",
-    "allenai/longformer-large-4096-extra.pos.embd.only": "https://s3.amazonaws.com/models.huggingface.co/bert/allenai/longformer-large-4096-extra.pos.embd.only/pytorch_model.bin",
-}
+LONGFORMER_PRETRAINED_MODEL_ARCHIVE_LIST = [
+    "allenai/longformer-base-4096",
+    "allenai/longformer-large-4096",
+    "allenai/longformer-large-4096-finetuned-triviaqa",
+    "allenai/longformer-base-4096-extra.pos.embd.only",
+    "allenai/longformer-large-4096-extra.pos.embd.only",
+    # See all Longformer models at https://huggingface.co/models?filter=longformer
+]
 
 
 def _get_question_end_index(input_ids, sep_token_id):
@@ -513,7 +515,6 @@ class LongformerModel(RobertaModel):
     """
 
     config_class = LongformerConfig
-    pretrained_model_archive_map = LONGFORMER_PRETRAINED_MODEL_ARCHIVE_MAP
     base_model_prefix = "longformer"
 
     def __init__(self, config):
@@ -587,14 +588,11 @@ class LongformerModel(RobertaModel):
         token_type_ids=None,
         position_ids=None,
         inputs_embeds=None,
-        masked_lm_labels=None,
     ):
         r"""
 
     Returns:
         :obj:`tuple(torch.FloatTensor)` comprising various elements depending on the configuration (:class:`~transformers.RobertaConfig`) and inputs:
-        masked_lm_loss (`optional`, returned when ``masked_lm_labels`` is provided) ``torch.FloatTensor`` of shape ``(1,)``:
-            Masked language modeling loss.
         prediction_scores (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, sequence_length, config.vocab_size)`)
             Prediction scores of the language modeling head (scores for each vocabulary token before SoftMax).
         hidden_states (:obj:`tuple(torch.FloatTensor)`, `optional`, returned when ``config.output_hidden_states=True``):
@@ -685,7 +683,6 @@ class LongformerModel(RobertaModel):
 @add_start_docstrings("""Longformer Model with a `language modeling` head on top. """, LONGFORMER_START_DOCSTRING)
 class LongformerForMaskedLM(BertPreTrainedModel):
     config_class = LongformerConfig
-    pretrained_model_archive_map = LONGFORMER_PRETRAINED_MODEL_ARCHIVE_MAP
     base_model_prefix = "longformer"
 
     def __init__(self, config):
@@ -705,18 +702,21 @@ class LongformerForMaskedLM(BertPreTrainedModel):
         token_type_ids=None,
         position_ids=None,
         inputs_embeds=None,
-        masked_lm_labels=None,
+        labels=None,
+        **kwargs
     ):
         r"""
-        masked_lm_labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):
+        labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):
             Labels for computing the masked language modeling loss.
             Indices should be in ``[-100, 0, ..., config.vocab_size]`` (see ``input_ids`` docstring)
             Tokens with indices set to ``-100`` are ignored (masked), the loss is only computed for the tokens with labels
             in ``[0, ..., config.vocab_size]``
+        kwargs (:obj:`Dict[str, any]`, optional, defaults to `{}`):
+            Used to hide legacy arguments that have been deprecated.
 
     Returns:
         :obj:`tuple(torch.FloatTensor)` comprising various elements depending on the configuration (:class:`~transformers.RobertaConfig`) and inputs:
-        masked_lm_loss (`optional`, returned when ``masked_lm_labels`` is provided) ``torch.FloatTensor`` of shape ``(1,)``:
+        masked_lm_loss (`optional`, returned when ``labels`` is provided) ``torch.FloatTensor`` of shape ``(1,)``:
             Masked language modeling loss.
         prediction_scores (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, sequence_length, config.vocab_size)`)
             Prediction scores of the language modeling head (scores for each vocabulary token before SoftMax).
@@ -745,8 +745,16 @@ class LongformerForMaskedLM(BertPreTrainedModel):
 
         attention_mask = None  # default is local attention everywhere, which is a good choice for MaskedLM
                                # check ``LongformerModel.forward`` for more details how to set `attention_mask`
-        loss, prediction_scores = model(input_ids, attention_mask=attention_mask, masked_lm_labels=input_ids)
+        loss, prediction_scores = model(input_ids, attention_mask=attention_mask, labels=input_ids)
         """
+
+        if "masked_lm_labels" in kwargs:
+            warnings.warn(
+                "The `masked_lm_labels` argument is deprecated and will be removed in a future version, use `labels` instead.",
+                DeprecationWarning,
+            )
+            labels = kwargs.pop("masked_lm_labels")
+        assert kwargs == {}, f"Unexpected keyword arguments: {list(kwargs.keys())}."
 
         outputs = self.longformer(
             input_ids,
@@ -761,9 +769,9 @@ class LongformerForMaskedLM(BertPreTrainedModel):
 
         outputs = (prediction_scores,) + outputs[2:]  # Add hidden states and attention if they are here
 
-        if masked_lm_labels is not None:
+        if labels is not None:
             loss_fct = CrossEntropyLoss()
-            masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), masked_lm_labels.view(-1))
+            masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), labels.view(-1))
             outputs = (masked_lm_loss,) + outputs
 
         return outputs  # (masked_lm_loss), prediction_scores, (hidden_states), (attentions)
@@ -776,7 +784,6 @@ class LongformerForMaskedLM(BertPreTrainedModel):
 )
 class LongformerForSequenceClassification(BertPreTrainedModel):
     config_class = LongformerConfig
-    pretrained_model_archive_map = LONGFORMER_PRETRAINED_MODEL_ARCHIVE_MAP
     base_model_prefix = "longformer"
 
     def __init__(self, config):
@@ -893,7 +900,6 @@ class LongformerClassificationHead(nn.Module):
 )
 class LongformerForQuestionAnswering(BertPreTrainedModel):
     config_class = LongformerConfig
-    pretrained_model_archive_map = LONGFORMER_PRETRAINED_MODEL_ARCHIVE_MAP
     base_model_prefix = "longformer"
 
     def __init__(self, config):
@@ -1018,7 +1024,6 @@ class LongformerForQuestionAnswering(BertPreTrainedModel):
 )
 class LongformerForTokenClassification(BertPreTrainedModel):
     config_class = LongformerConfig
-    pretrained_model_archive_map = LONGFORMER_PRETRAINED_MODEL_ARCHIVE_MAP
     base_model_prefix = "longformer"
 
     def __init__(self, config):
@@ -1119,7 +1124,6 @@ class LongformerForTokenClassification(BertPreTrainedModel):
 )
 class LongformerForMultipleChoice(BertPreTrainedModel):
     config_class = LongformerConfig
-    pretrained_model_archive_map = LONGFORMER_PRETRAINED_MODEL_ARCHIVE_MAP
     base_model_prefix = "longformer"
 
     def __init__(self, config):
