@@ -157,3 +157,4 @@ debug.env
 #ctags
 tags
 mains
+examples/text-classification/lightning_logs
