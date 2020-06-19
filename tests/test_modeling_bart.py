@@ -31,14 +31,16 @@ if is_torch_available():
     from transformers import (
         AutoModel,
         AutoModelForSequenceClassification,
+        AutoModelForSeq2SeqLM,
         AutoTokenizer,
         BartModel,
         BartForConditionalGeneration,
         BartForSequenceClassification,
+        BartForQuestionAnswering,
         BartConfig,
         BartTokenizer,
-        MBartTokenizer,
         BatchEncoding,
+        pipeline,
     )
     from transformers.modeling_bart import (
         BART_PRETRAINED_MODEL_ARCHIVE_LIST,
@@ -111,7 +113,9 @@ def prepare_bart_inputs_dict(
 @require_torch
 class BARTModelTest(ModelTesterMixin, unittest.TestCase):
     all_model_classes = (
-        (BartModel, BartForConditionalGeneration, BartForSequenceClassification) if is_torch_available() else ()
+        (BartModel, BartForConditionalGeneration, BartForSequenceClassification, BartForQuestionAnswering)
+        if is_torch_available()
+        else ()
     )
     all_generative_model_classes = (BartForConditionalGeneration,) if is_torch_available() else ()
     is_encoder_decoder = True
@@ -214,15 +218,14 @@ class MBartIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         checkpoint_name = "facebook/mbart-large-en-ro"
-        cls.tokenizer = MBartTokenizer.from_pretrained(checkpoint_name)
+        cls.tokenizer = AutoTokenizer.from_pretrained(checkpoint_name)
         cls.pad_token_id = 1
         return cls
 
     @cached_property
     def model(self):
         """Only load the model if needed."""
-
-        model = BartForConditionalGeneration.from_pretrained("facebook/mbart-large-en-ro").to(torch_device)
+        model = AutoModelForSeq2SeqLM.from_pretrained("facebook/mbart-large-en-ro").to(torch_device)
         if "cuda" in torch_device:
             model = model.half()
         return model
@@ -373,6 +376,19 @@ class BartHeadTests(unittest.TestCase):
         expected_shape = torch.Size((batch_size, config.num_labels))
         self.assertEqual(logits.shape, expected_shape)
         loss = outputs[0]
+        self.assertIsInstance(loss.item(), float)
+
+    def test_question_answering_forward(self):
+        config, input_ids, batch_size = self._get_config_and_data()
+        sequence_labels = ids_tensor([batch_size], 2).to(torch_device)
+        model = BartForQuestionAnswering(config)
+        model.to(torch_device)
+        loss, start_logits, end_logits, _ = model(
+            input_ids=input_ids, start_positions=sequence_labels, end_positions=sequence_labels,
+        )
+
+        self.assertEqual(start_logits.shape, input_ids.shape)
+        self.assertEqual(end_logits.shape, input_ids.shape)
         self.assertIsInstance(loss.item(), float)
 
     @timeout_decorator.timeout(1)
@@ -550,6 +566,22 @@ class BartModelIntegrationTests(unittest.TestCase):
             [[0.7144, 0.8143, -1.2813], [0.7144, 0.8143, -1.2813], [-0.0467, 2.5911, -2.1845]], device=torch_device
         )
         self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=TOLERANCE))
+
+    @slow
+    def test_bart_base_mask_filling(self):
+        pbase = pipeline(task="fill-mask", model="facebook/bart-base")
+        src_text = [" I went to the <mask>."]
+        results = [x["token_str"] for x in pbase(src_text)]
+        expected_results = ["Ġbathroom", "Ġrestroom", "Ġhospital", "Ġkitchen", "Ġcar"]
+        self.assertListEqual(results, expected_results)
+
+    @slow
+    def test_bart_large_mask_filling(self):
+        pbase = pipeline(task="fill-mask", model="facebook/bart-large")
+        src_text = [" I went to the <mask>."]
+        results = [x["token_str"] for x in pbase(src_text)]
+        expected_results = ["Ġbathroom", "Ġgym", "Ġwrong", "Ġmovies", "Ġhospital"]
+        self.assertListEqual(results, expected_results)
 
     @slow
     def test_mnli_inference(self):
